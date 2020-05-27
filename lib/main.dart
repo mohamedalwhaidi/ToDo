@@ -1,20 +1,37 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:todo/auth/login.dart';
 
-void main() {
-  runApp(MaterialApp(home: Home(),),);
+import 'todo/homeScreen.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  FirebaseUser user = await FirebaseAuth.instance.currentUser();
+  Widget homeScreen = HomeScreen();
+  if (user == null) {
+    homeScreen = LoginScreen();
+  }
+  runApp(
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: ToDoApp(homeScreen),
+    ),
+  );
 }
 
+class ToDoApp extends StatelessWidget {
+  final Widget home;
 
-class Home extends StatefulWidget {
-  @override
-  _HomeState createState() => _HomeState();
-}
+  ToDoApp(this.home);
 
-class _HomeState extends State<Home> {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.red,
+    return MaterialApp(
+      home: this.home,
+      theme: ThemeData(
+        primaryColor: Colors.teal,
+        accentColor: Colors.teal,
+      ),
     );
   }
 }
