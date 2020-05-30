@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:todo/todo/homeScreen.dart';
@@ -13,6 +14,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   TextEditingController _emailController = TextEditingController();
   TextEditingController _passwordController = TextEditingController();
   TextEditingController _confirmPasswordController = TextEditingController();
+  TextEditingController _nameController = TextEditingController();
 
   var _key = GlobalKey<FormState>();
   bool _autoValidation = false;
@@ -24,6 +26,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -48,8 +51,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             children: <Widget>[
               TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(hintText: 'Your Name'),
+                  validator: (value) {
+                    if (value.isEmpty) {
+                      return 'Name is required';
+                    }
+                    return null;
+                  }),
+              SizedBox(height: 20),
+              TextFormField(
                   controller: _emailController,
                   decoration: InputDecoration(hintText: 'Your Email'),
+                  keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     if (value.isEmpty) {
                       return 'Email is required';
@@ -60,6 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextFormField(
                   controller: _passwordController,
                   decoration: InputDecoration(hintText: 'Password'),
+                  keyboardType: TextInputType.visiblePassword,
                   obscureText: true,
                   validator: (value) {
                     if (value.isEmpty) {
@@ -127,19 +142,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
     }
     //TODO:Connect with firebase
-    AuthResult result = await FirebaseAuth.instance
+
+    FirebaseAuth.instance
         .createUserWithEmailAndPassword(
-            email: _emailController.text.trim(),
-            password: _passwordController.text.trim());
-    if (result.user == null) {
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim())
+        .then((authResult) {
+      Firestore.instance.collection('profiles').document().setData({
+        'name': _nameController.text.trim(),
+        'user_id': authResult.user.uid,
+      }).then((_) {
+        Navigator.of(context)
+            .pushReplacement(
+            MaterialPageRoute(builder: (context) => HomeScreen()))
+            .catchError((error) {
+          setState(() {
+            _isLoading = false;
+            _error = "User registration error";
+          });
+        });
+      });
+    }).catchError((error) {
       setState(() {
         _isLoading = false;
-        _error = "User registeration error";
+        _error = "User registration error";
       });
-    } else {
-      Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => HomeScreen()));
-    }
+    });
   }
 
   Widget _errorMessage(BuildContext context) {

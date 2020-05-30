@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:todo/auth/login.dart';
 
 import 'newToDo.dart';
 import 'utilities.dart';
@@ -14,28 +15,57 @@ class _HomeScreenState extends State<HomeScreen> {
   String _user;
   String _error;
   bool _hasError = false;
-  bool _isLoading = false;
+  bool _isLoading = true;
+  String _name;
 
   @override
   void initState() {
     super.initState();
-    FirebaseAuth.instance.currentUser().then((user) {
-      _user = user.uid;
-      _hasError = false;
-      _isLoading = false;
-    }).catchError((error) {
-      _hasError = true;
-      _error = error.toString();
+    _prepareData().then((user){
+      //TODO: if user from prepare data not equal null bring second data and give it user
+      if( user != null){
+      _secondStepData(user);
+      }
     });
   }
+
+  Future<FirebaseUser> _prepareData() async {
+    FirebaseAuth.instance.currentUser().then((user) {
+      Firestore.instance
+          .collection('profiles')
+          .where('user_id', isEqualTo: user.uid)
+          .getDocuments()
+          .then((snapshotQuery) {
+        setState(() {
+          _name = snapshotQuery.documents[0]['name'];
+          _user = user.uid;
+          _hasError = false;
+          _isLoading = false;
+        });
+        return user;
+      });
+    }).catchError((error) {
+      setState(() {
+        _hasError = true;
+        _error = error.toString();
+      });
+      return null;
+    });
+    return null;
+  }
+
+  void _secondStepData(FirebaseUser user) {}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Home Screen'),
+        title: _isLoading
+            ? Text('Home')
+            : (_hasError ? _errorMessage(context, _error) : Text(_name)),
         centerTitle: true,
       ),
+      drawer: _drawer(context),
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
         onPressed: _pushToNewToDo,
@@ -200,5 +230,26 @@ class _HomeScreenState extends State<HomeScreen> {
             .delete();
       });
     };
+  }
+
+  Widget _drawer(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        children: <Widget>[
+          DrawerHeader(child: null),
+          ListTile(
+            title: Text('LOGOUT'),
+            trailing: Icon(Icons.exit_to_app),
+            onTap: () async {
+              FirebaseAuth.instance.signOut().then((_) {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (context) => LoginScreen()));
+              });
+            },
+          )
+        ],
+      ),
+    );
   }
 }
