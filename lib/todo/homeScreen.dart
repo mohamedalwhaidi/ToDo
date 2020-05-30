@@ -1,8 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'newToDo.dart';
-import 'utilites.dart';
+import 'utilities.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -10,6 +11,24 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String _user;
+  String _error;
+  bool _hasError = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    FirebaseAuth.instance.currentUser().then((user) {
+      _user = user.uid;
+      _hasError = false;
+      _isLoading = false;
+    }).catchError((error) {
+      _hasError = true;
+      _error = error.toString();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -28,30 +47,47 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _content(BuildContext context) {
     return Padding(
       padding: EdgeInsets.all(20),
-      child: StreamBuilder(
-        stream:
-        Firestore.instance.collection('todos').orderBy('done').snapshots(),
-        builder: (BuildContext context, AsyncSnapshot snapshot) {
-          switch (snapshot.connectionState) {
-            case ConnectionState.none:
-              return _errorMessage(context, 'No connection is made');
-              break;
-            case ConnectionState.waiting:
-              return Center(child: CircularProgressIndicator());
-              break;
-            case ConnectionState.active:
-            case ConnectionState.done:
-              if (snapshot.hasError) {
-                return _errorMessage(context, snapshot.error.toString());
-              } else if (!snapshot.hasData) {
-                return _errorMessage(context, 'No Data');
-              }
-              return _drawScreen(context, snapshot.data);
-              break;
-          }
-          return null;
-        },
-      ),
+      child: _isLoading
+          ? _loading(context)
+          : (_hasError
+              ? _errorMessage(context, _error)
+              : _streamContent(context)),
+    );
+  }
+
+  Widget _streamContent(BuildContext context) {
+    return StreamBuilder(
+      stream: Firestore.instance
+          .collection(collections['todos'])
+          .where('user_id', isEqualTo: _user)
+          .orderBy('done')
+          .snapshots(),
+      builder: (BuildContext context, AsyncSnapshot snapshot) {
+        switch (snapshot.connectionState) {
+          case ConnectionState.none:
+            return _errorMessage(context, 'No connection is made');
+            break;
+          case ConnectionState.waiting:
+            return Center(child: CircularProgressIndicator());
+            break;
+          case ConnectionState.active:
+          case ConnectionState.done:
+            if (snapshot.hasError) {
+              return _errorMessage(context, snapshot.error.toString());
+            } else if (!snapshot.hasData) {
+              return _errorMessage(context, 'No Data');
+            }
+            return _drawScreen(context, snapshot.data);
+            break;
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _loading(BuildContext context) {
+    return Center(
+      child: CircularProgressIndicator(),
     );
   }
 
@@ -89,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? TextDecoration.lineThrough
                           : TextDecoration.none)),
 //              trailing: _deleteTrailing(data, position),
-              leading: _leadingDone(data,position),
+              leading: _leadingDone(data, position),
             ),
           ),
         );
@@ -117,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _deleteTrailing(QuerySnapshot data, int position) {
+  /*Widget _deleteTrailing(QuerySnapshot data, int position) {
     return IconButton(
       icon: Icon(Icons.delete),
       color: Colors.red.shade300,
@@ -128,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
             .delete();
       },
     );
-  }
+  }*/
 
   Widget _backgroundOnSwipeListTile() {
     return Container(
